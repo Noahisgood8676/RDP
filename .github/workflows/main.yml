@@ -1,0 +1,81 @@
+name: RDP
+
+on:
+  workflow_dispatch:
+
+jobs:
+  secure-rdp:
+    runs-on: windows-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Configure Core RDP Settings
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
+                             -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
+                             -Name "UserAuthentication" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
+                             -Name "SecurityLayer" -Value 0 -Force
+          netsh advfirewall firewall delete rule name="RDP-ngrok"
+          netsh advfirewall firewall add rule name="RDP-ngrok" dir=in action=allow protocol=TCP localport=3389
+          Restart-Service -Name TermService -Force
+
+      - name: Create RDP User with Secure Password
+        id: rdpuser
+        run: |
+          Add-Type -AssemblyName System.Security
+          $charSet = @{
+              Upper   = [char[]](65..90)
+              Lower   = [char[]](97..122)
+              Number  = [char[]](48..57)
+              Special = ([char[]](33..47) + [char[]](58..64) + [char[]](91..96) + [char[]](123..126))
+          }
+          $rawPassword = @()
+          $rawPassword += $charSet.Upper | Get-Random -Count 4
+          $rawPassword += $charSet.Lower | Get-Random -Count 4
+          $rawPassword += $charSet.Number | Get-Random -Count 4
+          $rawPassword += $charSet.Special | Get-Random -Count 4
+          $password = -join ($rawPassword | Sort-Object { Get-Random })
+          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+          New-LocalUser -Name "RDP" -Password $securePass -AccountNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member "RDP"
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
+          echo "::set-output name=rdp_password::$password"
+
+      - name: Download ngrok
+        run: |
+          Invoke-WebRequest -Uri https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-windows-amd64.zip -OutFile ngrok.zip
+          Expand-Archive ngrok.zip -DestinationPath $PWD
+
+      - name: Add ngrok auth token
+        run: .\ngrok.exe config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+
+      - name: Start ngrok tunnel
+        run: Start-Process -NoNewWindow -FilePath .\ngrok.exe -ArgumentList "tcp 3389"
+
+      - name: Wait for tunnel to initialize
+        run: Start-Sleep -Seconds 10
+
+      - name: Get ngrok tunnel info
+        id: ngrokinfo
+        run: |
+          $response = Invoke-WebRequest -Uri http://127.0.0.1:4040/api/tunnels
+          $json = $response.Content | ConvertFrom-Json
+          $public_url = $json.tunnels[0].public_url
+          echo "::set-output name=ngrok_addr::$public_url"
+
+      - name: Show connection details
+        run: |
+          Write-Host "====================================="
+          Write-Host "RDP Username: RDP"
+          Write-Host "RDP Password: ${{ steps.rdpuser.outputs.rdp_password }}"
+          Write-Host "Ngrok RDP Address: ${{ steps.ngrokinfo.outputs.ngrok_addr }}"
+          Write-Host "====================================="
+
+      - name: Keep runner alive
+        run: |
+          while ($true) {
+            Write-Host "[$(Get-Date)] RDP Active - Use Ctrl+C in workflow to terminate"
+            Start-Sleep -Seconds 300
+          }
