@@ -1,0 +1,60 @@
+name: Windows-11-Perpetual-NoahNW
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *' # AUTOMATIC REBIRTH: Restarts every 6 hours
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 360 # Full execution window
+
+    steps:
+    - name: Neural Link Restore (Data Sync)
+      uses: actions/download-artifact@v4
+      with:
+        name: NoahNW-State
+        path: C:\Users\NoahNW\Desktop\SAVE_THIS
+      continue-on-error: true # FIX: Ignores error on first run or failed uploads
+
+    - name: Core Preparation
+      run: |
+        Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
+        Expand-Archive ngrok.zip
+      shell: powershell
+
+    - name: Identity Override & Environment Patch
+      run: |
+        .\ngrok\ngrok.exe authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+        
+        # Inject Identity: NoahNW | Pass: IloveNoah123$
+        net user "NoahNW" "IloveNoah123$" /add
+        net localgroup administrators "NoahNW" /add
+        
+        # Ensure Save Directory Exists
+        if (!(Test-Path "C:\Users\NoahNW\Desktop\SAVE_THIS")) {
+            New-Item -ItemType Directory -Force -Path "C:\Users\NoahNW\Desktop\SAVE_THIS"
+        }
+
+        # RDP Registry Patches
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+      shell: powershell
+
+    - name: Establish Tunnel
+      run: |
+        Start-Process .\ngrok\ngrok.exe -ArgumentList "tcp 3389"
+        echo "RDP ACTIVE. Use Ngrok Dashboard to find the endpoint."
+        # Run for 5.8 hours before the automated save-state kicks in
+        Start-Sleep -Seconds 21000 
+      shell: powershell
+
+    - name: Save-State Synchronization
+      if: always() # MUST run to save data for the next rebirth
+      uses: actions/upload-artifact@v4
+      with:
+        name: NoahNW-State
+        path: C:\Users\NoahNW\Desktop\SAVE_THIS
+        retention-days: 1
