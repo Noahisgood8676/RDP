@@ -1,0 +1,53 @@
+name: Windows-11-Perpetual-NoahNW
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *' # AUTOMATIC REBIRTH: Triggers every 6 hours
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 360 # Maximum allow session time
+
+    steps:
+    - name: Neural Link Restore (Data Sync)
+      uses: actions/download-artifact@v4
+      with:
+        name: NoahNW-State
+        path: C:\Users\NoahNW\Desktop\SAVE_THIS
+      continue-on-error: true
+
+    - name: Download & Extract
+      run: |
+        Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
+        Expand-Archive ngrok.zip
+      shell: powershell
+
+    - name: Auth & Identity Override
+      run: |
+        .\ngrok\ngrok.exe authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+        # Set User: NoahNW | Pass: IloveNoah123$
+        net user "NoahNW" "IloveNoah123$" /add
+        net localgroup administrators "NoahNW" /add
+        # Enable RDP
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+      shell: powershell
+
+    - name: Establish Tunnel
+      run: |
+        # This part runs the RDP. Put files in C:\Users\NoahNW\Desktop\SAVE_THIS to persist them.
+        Start-Process .\ngrok\ngrok.exe -ArgumentList "tcp 3389"
+        echo "RDP ACTIVE. Use your Ngrok dashboard to find the IP."
+        Start-Sleep -Seconds 21000 # Wait 5.8 hours before saving state
+      shell: powershell
+
+    - name: Save-State Synchronization
+      if: always() # Ensures data saves even if the job is manually stopped
+      uses: actions/upload-artifact@v4
+      with:
+        name: NoahNW-State
+        path: C:\Users\NoahNW\Desktop\SAVE_THIS
+        retention-days: 1
