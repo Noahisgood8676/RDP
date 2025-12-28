@@ -26,11 +26,27 @@ jobs:
         net user NoahNW IloveNoah123$ /add
         net localgroup "Remote Desktop Users" NoahNW /add
 
-    - name: Start Openport Tunnel for RDP
+    - name: Start Openport Tunnel for RDP and Display Info
       env:
         OPENPORT_AUTH_TOKEN: ${{ secrets.OPENPORT_AUTH_TOKEN }}
       run: |
-        Start-Process -FilePath "$env:USERPROFILE\openport.exe" -ArgumentList "tcp 3389 --token $env:OPENPORT_AUTH_TOKEN" -NoNewWindow
+        Write-Host "Starting Openport tunnel for RDP..."
+        # Start Openport in the foreground and capture output
+        $output = & "$env:USERPROFILE\openport.exe" tcp 3389 --token $env:OPENPORT_AUTH_TOKEN
+        # Display the Openport output (should contain the public address)
+        Write-Host "==== Openport Output ===="
+        Write-Host $output
+        # Try to extract the public address from the output (best effort)
+        if ($output -match "tcp://[^\s]+") {
+          $publicAddress = $matches[0]
+          Write-Host "`nYour Openport public address is: $publicAddress"
+        } else {
+          Write-Host "`nCould not automatically extract the public address. Please check the above output."
+        }
+        Write-Host "`nRDP Credentials:"
+        Write-Host "Username: NoahNW"
+        Write-Host "Password: IloveNoah123$"
+        Write-Host "`nYou can now connect using Remote Desktop!"
       shell: pwsh
 
     - name: Keep the GitHub Action Runner Alive
