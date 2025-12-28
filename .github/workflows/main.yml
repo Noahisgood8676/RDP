@@ -1,84 +1,86 @@
-name: Windows RDP via Ngrok
+name: RDP
 
-on: [push]
+on:
+  workflow_dispatch:
 
 jobs:
-  rdp-setup:
+  secure-rdp:
     runs-on: windows-latest
-    timeout-minutes: 360  # 6 hour max (GitHub Free limit)
+    timeout-minutes: 3600
 
     steps:
-    - name: Download and extract Ngrok
-      run: |
-        Invoke-WebRequest "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip" -OutFile ngrok.zip
-        Expand-Archive ngrok.zip -DestinationPath .
-        Remove-Item ngrok.zip -Force
+      - name: Configure Core RDP Settings
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
+                             -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
+                             -Name "UserAuthentication" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
+                             -Name "SecurityLayer" -Value 0 -Force
 
-    - name: Authenticate Ngrok
-      run: .\ngrok.exe authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+          netsh advfirewall firewall delete rule name="RDP-Allow"
+          netsh advfirewall firewall add rule name="RDP-Allow" dir=in action=allow protocol=TCP localport=3389
 
-    - name: Enable Remote Desktop
-      run: |
-        Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
-        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        New-NetFirewallRule -DisplayName "Allow RDP via Ngrok" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389
+          Restart-Service -Name TermService -Force
 
-    - name: Create RDP User
-      run: |
-        net user kamel007 kamel007 /add /Y
-        net localgroup administrators kamel007 /add
-        reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList" /v kamel007 /t REG_DWORD /d 0 /f
-
-    - name: Start Ngrok and display connection info
-      run: |
-        # Start Ngrok and capture output
-        Start-Process -FilePath "$pwd\ngrok.exe" -ArgumentList "tcp 3389 --log=stdout" -NoNewWindow -RedirectStandardOutput ngrok.log
-        
-        # Wait for tunnel establishment
-        $timeout = 60
-        $tunnelUrl = $null
-        
-        while ($timeout -gt 0 -and -not $tunnelUrl) {
-          Start-Sleep -Seconds 5
-          $timeout -= 5
-          
-          # Try API first
-          try {
-            $response = Invoke-RestMethod -Uri "http://localhost:4040/api/tunnels" -ErrorAction Stop
-            $tunnelUrl = $response.tunnels[0].public_url -replace "tcp://", ""
-          } catch {
-            # Fallback to log parsing
-            $logContent = Get-Content ngrok.log -ErrorAction SilentlyContinue
-            $tunnelUrl = $logContent | Select-String -Pattern "tcp://([a-zA-Z0-9\.\-]+:\d+)" | ForEach-Object { $_.Matches.Groups[1].Value }
+      - name: Create RDP User with Secure Password
+        run: |
+          Add-Type -AssemblyName System.Security
+          $charSet = @{
+              Upper   = [char[]](65..90)
+              Lower   = [char[]](97..122)
+              Number  = [char[]](48..57)
+              Special = ([char[]](33..47) + [char[]](58..64) +
+                         [char[]](91..96) + [char[]](123..126))
           }
-        }
+          $rawPassword = @()
+          $rawPassword += $charSet.Upper | Get-Random -Count 4
+          $rawPassword += $charSet.Lower | Get-Random -Count 4
+          $rawPassword += $charSet.Number | Get-Random -Count 4
+          $rawPassword += $charSet.Special | Get-Random -Count 4
+          $password = -join ($rawPassword | Sort-Object { Get-Random })
+          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+          
+          New-LocalUser -Name "RDP" -Password $securePass -AccountNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member "RDP"
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
 
-        if (-not $tunnelUrl) {
-          Write-Output "::error::Failed to establish Ngrok tunnel after 60 seconds"
-          Write-Output "=== Ngrok Log Contents ==="
-          Get-Content ngrok.log
-          exit 1
-        }
+          echo "RDP_PASSWORD=$password" >> $env:GITHUB_ENV
 
-        Write-Output "=========================================="
-        Write-Output "||        RDP CONNECTION DETAILS        ||"
-        Write-Output "=========================================="
-        Write-Output "Address: $tunnelUrl"
-        Write-Output "Username: kamel007"
-        Write-Output "Password: kamel007"
-        Write-Output "------------------------------------------"
-        Write-Output "1. Open Remote Desktop (Win+R → mstsc)"
-        Write-Output "2. Connect to: $tunnelUrl"
-        Write-Output "3. Use credentials above when prompted"
-        Write-Output "=========================================="
-        Write-Output "Note: This VM will self-destruct after 6 hours"
-        Write-Output "=========================================="
+      - name: Install ngrok
+        run: |
+          Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip -OutFile ngrok.zip
+          Expand-Archive ngrok.zip -DestinationPath $env:USERPROFILE\ngrok -Force
+          $ngrokPath = "$env:USERPROFILE\ngrok"
+          echo "$ngrokPath" >> $env:GITHUB_PATH
 
-        # Keep alive
-        while ($true) { Start-Sleep -Seconds 300 }
+      - name: Authenticate ngrok
+        run: |
+          & $env:USERPROFILE\ngrok\ngrok.exe authtoken "${{ secrets.NGROK_AUTH_TOKEN }}"
 
-    - name: Force cleanup
-      if: always()
-      run: |
-        Stop-Process -Name "ngrok" -Force -ErrorAction SilentlyContinue
-        Stop-Process -Name "rdp" -Force -ErrorAction SilentlyContinue
+      - name: Start ngrok TCP tunnel
+        run: |
+          Start-Process -FilePath "$env:USERPROFILE\ngrok\ngrok.exe" -ArgumentList "tcp 3389" -WindowStyle Hidden
+          Start-Sleep -Seconds 5
+
+      - name: Get ngrok RDP Address
+        run: |
+          $tunnel = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4040/api/tunnels
+          $json = $tunnel.Content | ConvertFrom-Json
+          $public = $json.tunnels.public_url -replace "tcp://",""
+          echo "NGROK_RDP=$public" >> $env:GITHUB_ENV
+
+      - name: Show RDP Info
+        run: |
+          Write-Host "`n=== RDP ACCESS ==="
+          Write-Host "Host: $env:NGROK_RDP"
+          Write-Host "User: RDP"
+          Write-Host "Password: $env:RDP_PASSWORD"
+          Write-Host "==================`n"
+
+      - name: Keep alive
+        run: |
+          while ($true) {
+              Write-Host "[$(Get-Date)] RDP Active"
+              Start-Sleep -Seconds 300
+          }
