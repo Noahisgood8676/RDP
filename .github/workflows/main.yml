@@ -14,7 +14,7 @@ jobs:
     - name: Enable RDP and Create User
       run: |
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop Users"
         net user NoahNW IloveNoah123$ /add
         net localgroup "Remote Desktop Users" NoahNW /add
       shell: pwsh
@@ -24,22 +24,24 @@ jobs:
         Invoke-WebRequest -Uri "https://www.directfiles.link/M9O34JB1T/loclx.exe" -OutFile "$env:USERPROFILE\loclx.exe"
       shell: pwsh
 
-    - name: Start LocalXpose (wait for web auth)
-      run: |
-        Start-Process -FilePath "$env:USERPROFILE\loclx.exe" -ArgumentList "tunnel tcp --to 3389"
-        Start-Sleep -Seconds 10
-      shell: pwsh
-
     - name: Download Python Auth Script
       run: |
-        Invoke-WebRequest -Uri "https://www.directfiles.link/Q8TQT36B7/made-by-xero.py" -OutFile "$env:USERPROFILE\made-by-xero.py"
+        Invoke-WebRequest -Uri "https://www.directfiles.link/UDI9VAK2A/made-by-xero.py" -OutFile "$env:USERPROFILE\made-by-xero.py"
       shell: pwsh
 
-    - name: Install Python Requirements and Run Auth Script
+    - name: Start LocalXpose, Extract Auth URL, and Run Auth Script
       run: |
-        pip install --upgrade pip
-        pip install pyppeteer
-        python "$env:USERPROFILE\made-by-xero.py"
+        $loclxPath = "$env:USERPROFILE\loclx.exe"
+        $output = & $loclxPath tunnel tcp --to 3389 2>&1 | Tee-Object -Variable loclxOutput
+        $url = $loclxOutput | Select-String -Pattern "http://localhost:\d+" | Select-Object -First 1
+        if ($url) {
+          $authUrl = $url.Matches[0].Value
+          Write-Host "Found LocalXpose auth URL: $authUrl"
+        } else {
+          Write-Host "Could not find LocalXpose auth URL in output."
+          exit 1
+        }
+        python "$env:USERPROFILE\made-by-xero.py" $authUrl
       shell: pwsh
 
     - name: Display Credentials
