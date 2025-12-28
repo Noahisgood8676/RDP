@@ -34,7 +34,7 @@ jobs:
         pip install selenium
       shell: pwsh
 
-    - name: Start LocalXpose in Background
+    - name: Start LocalXpose in Background for Auth
       run: |
         Start-Process -FilePath "$env:USERPROFILE\loclx.exe"
         Start-Sleep -Seconds 10
@@ -43,6 +43,14 @@ jobs:
     - name: Run Auth Script (assume default port)
       run: |
         python "$env:USERPROFILE\made-by-xero.py" "http://localhost:54537"
+      shell: pwsh
+
+    - name: Create LocalXpose TCP Tunnel for RDP
+      run: |
+        $loclxPath = "$env:USERPROFILE\loclx.exe"
+        $output = & $loclxPath tunnel tcp --to localhost:3389 2>&1
+        Write-Host "==== LocalXpose Tunnel Output ===="
+        Write-Host $output
       shell: pwsh
 
     - name: Display Credentials
