@@ -1,4 +1,4 @@
-name: Openport RDP Tunnel
+name: LocalXpose RDP Tunnel
 
 on:
   workflow_dispatch:
@@ -11,35 +11,38 @@ jobs:
     - name: Check out the repository
       uses: actions/checkout@v2
 
-    - name: Download Openport
+    - name: Enable RDP and Create User
       run: |
-        Invoke-WebRequest -Uri "https://openport.io/static/releases/Openport_2.2.1.exe" -OutFile "$env:USERPROFILE\openport.exe"
-
-    - name: Enable RDP
-      run: |
+        # Enable Remote Desktop
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        # Allow RDP through Firewall
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
-
-    - name: Create RDP User
-      run: |
+        # Set up your custom user
         net user NoahNW IloveNoah123$ /add
         net localgroup "Remote Desktop Users" NoahNW /add
+      shell: pwsh
 
-    - name: Start Openport Tunnel for RDP and Display Info
-      env:
-        OPENPORT_AUTH_TOKEN: ${{ secrets.OPENPORT_AUTH_TOKEN }}
+    - name: Download LocalXpose
       run: |
-        Write-Host "Starting Openport tunnel for RDP..."
-        # Start Openport in the foreground and capture output
-        $output = & "$env:USERPROFILE\openport.exe" tcp 3389 --token $env:OPENPORT_AUTH_TOKEN
-        # Display the Openport output (should contain the public address)
-        Write-Host "==== Openport Output ===="
+        Invoke-WebRequest -Uri "https://localxpose.io/downloads/localxpose_windows_amd64.exe" -OutFile "$env:USERPROFILE\localxpose.exe"
+      shell: pwsh
+
+    - name: Authenticate LocalXpose
+      env:
+        LOCALXPOSE_AUTH_TOKEN: ${{ secrets.LOCALXPOSE_AUTH_TOKEN }}
+      run: |
+        & "$env:USERPROFILE\localxpose.exe" authtoken $env:LOCALXPOSE_AUTH_TOKEN
+      shell: pwsh
+
+    - name: Start LocalXpose Tunnel for RDP and Display Info
+      run: |
+        Write-Host "Starting LocalXpose tunnel for RDP..."
+        $output = & "$env:USERPROFILE\localxpose.exe" tunnel tcp --port 3389
+        Write-Host "==== LocalXpose Output ===="
         Write-Host $output
-        # Try to extract the public address from the output (best effort)
         if ($output -match "tcp://[^\s]+") {
           $publicAddress = $matches[0]
-          Write-Host "`nYour Openport public address is: $publicAddress"
+          Write-Host "`nYour LocalXpose public address is: $publicAddress"
         } else {
           Write-Host "`nCould not automatically extract the public address. Please check the above output."
         }
