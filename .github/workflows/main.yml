@@ -13,7 +13,7 @@ jobs:
 
     - name: Download Openport
       run: |
-        Invoke-WebRequest -Uri "https://github.com/openportio/openport/releases/latest/download/openport-windows-amd64.exe" -OutFile "$env:USERPROFILE\openport.exe"
+        Invoke-WebRequest -Uri "https://openport.io/static/releases/Openport_2.2.1.exe" -OutFile "$env:USERPROFILE\openport.exe"
 
     - name: Enable RDP
       run: |
