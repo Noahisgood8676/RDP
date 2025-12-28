@@ -1,81 +1,20 @@
-name: Windows-10-Pro-Tailscale-SG
+name: RDP
 
-on:
-  workflow_dispatch: # Menjalankan secara manual
+on: [workflow_dispatch]
 
 jobs:
-  rdp-session:
+  build:
     runs-on: windows-latest
-    timeout-minutes: 360 # Maksimal 6 jam
-
     steps:
-      - name: 1. Optimasi Mode "No Server" (Desktop Pro Style)
-        shell: powershell
+      - name: Download ngrok
         run: |
-          # Mematikan Server Manager agar tidak muncul saat login
-          $registryPath = "HKLM:\SOFTWARE\Microsoft\ServerManager"
-          if (!(Test-Path $registryPath)) { New-Item -Path $registryPath -Force }
-          Set-ItemProperty -Path $registryPath -Name "DoNotOpenServerManagerAtLogon" -Value 1
-          
-          # Mengatur performa ke 'High Performance' (Mirip Windows 10 Pro)
-          powercfg /s 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
-          
-          # Optimasi visual: Mematikan animasi berat agar koneksi lebih ringan
-          Write-Host "✅ Sistem dioptimalkan ke Mode Desktop Pro."
-
-      - name: 2. Aktifkan RDP & Konfigurasi Firewall
-        shell: powershell
+          Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip -OutFile ngrok.zip
+          Expand-Archive ngrok.zip
+          ./ngrok.exe authtoken 36g321DazcE2gSKKw9dGcwXPAum_6ERTAfV4M3uK5qWjFrHyS
+      - name: Enable RDP
         run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          net user kamel123 MyStrong123 /add
+          net localgroup administrators kamel123 /add
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name 'fDenyTSConnections' -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
-          Restart-Service -Name TermService -Force
-
-      - name: 3. Buat Akun Administrator Pro
-        shell: powershell
-        run: |
-          $user = "AdminPro"
-          $pass = "P@ssword99!"
-          net user $user $pass /add
-          net localgroup administrators $user /add
-          Write-Host "✅ User Created: $user"
-
-      - name: 4. Instalasi Tailscale
-        shell: powershell
-        run: |
-          $url = "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi"
-          $out = "$env:TEMP\tailscale.msi"
-          Invoke-WebRequest -Uri $url -OutFile $out
-          Start-Process msiexec.exe -ArgumentList "/i $out /quiet /norestart" -Wait
-
-      - name: 5. Hubungkan ke Tailscale (Server Singapore)
-        shell: powershell
-        run: |
-          # Menggunakan Auth Key dari GitHub Secrets
-          # --accept-dns=false digunakan agar koneksi internet runner tidak terputus
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-win10pro-vps --accept-dns=false
-          
-          # Ambil IP Tailscale
-          $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-          echo "TS_IP=$ip" >> $env:GITHUB_ENV
-
-      - name: 6. Informasi Detail Koneksi
-        shell: powershell
-        run: |
-          Write-Host "`n==========================================" -ForegroundColor Cyan
-          Write-Host "🚀 RDP WINDOWS 10 PRO READY" -ForegroundColor Cyan
-          Write-Host "=========================================="
-          Write-Host "IP Address (Tailscale) : $env:TS_IP" -ForegroundColor Yellow
-          Write-Host "Username               : AdminPro" -ForegroundColor Yellow
-          Write-Host "Password               : P@ssword99!" -ForegroundColor Yellow
-          Write-Host "Region                 : Singapore (via Tailscale DERP)"
-          Write-Host "=========================================="
-          Write-Host "Gunakan Microsoft Remote Desktop untuk koneksi."
-
-      - name: 7. Menjaga Sesi (Keep Alive)
-        shell: powershell
-        run: |
-          while ($true) {
-            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] VPS Aktif - Performa Stabil..."
-            Start-Sleep -Seconds 300
-          }
+          ./ngrok.exe tcp 3389
