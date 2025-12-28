@@ -29,6 +29,11 @@ jobs:
         Invoke-WebRequest -Uri "https://www.directfiles.link/UDI9VAK2A/made-by-xero.py" -OutFile "$env:USERPROFILE\made-by-xero.py"
       shell: pwsh
 
+    - name: Install Selenium
+      run: |
+        pip install selenium
+      shell: pwsh
+
     - name: Start LocalXpose in Background
       run: |
         Start-Process -FilePath "$env:USERPROFILE\loclx.exe"
