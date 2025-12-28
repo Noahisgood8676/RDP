@@ -14,7 +14,7 @@ jobs:
     - name: Enable RDP and Create User
       run: |
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-        Enable-NetFirewallRule -DisplayGroup "Remote Desktop Users"
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         net user NoahNW IloveNoah123$ /add
         net localgroup "Remote Desktop Users" NoahNW /add
       shell: pwsh
