@@ -1,4 +1,4 @@
-name: Playit RDP Tunnel
+name: Openport RDP Tunnel
 
 on:
   workflow_dispatch:
@@ -11,28 +11,26 @@ jobs:
     - name: Check out the repository
       uses: actions/checkout@v2
 
-    - name: Download and Install Playit
+    - name: Download Openport
       run: |
-        Invoke-WebRequest -Uri "https://github.com/playit-cloud/playit-agent/releases/download/v0.15.26/playit-windows-x86_64-signed.exe" -OutFile "$env:USERPROFILE\playit.exe"
-        Start-Sleep -Seconds 5  # Give some time for the download to complete
+        Invoke-WebRequest -Uri "https://github.com/openportio/openport/releases/latest/download/openport-windows-amd64.exe" -OutFile "$env:USERPROFILE\openport.exe"
 
-    - name: Enable TS
-      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+    - name: Enable RDP
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
 
-    - name: Enable RDP Firewall Rule
-      run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+    - name: Create RDP User
+      run: |
+        net user NoahNW IloveNoah123$ /add
+        net localgroup "Remote Desktop Users" NoahNW /add
 
-    - name: Set RDP User Authentication
-      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
-
-    - name: Set runneradmin Password
-      run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "p@ssw0rd!" -Force)
-
-    - name: Start Playit and Set Up RDP Tunnel
+    - name: Start Openport Tunnel for RDP
       env:
-        PLAYIT_AUTH_KEY: ${{ secrets.PLAYIT_AUTH_KEY }}
+        OPENPORT_AUTH_TOKEN: ${{ secrets.OPENPORT_AUTH_TOKEN }}
       run: |
-        Start-Process -FilePath "$env:USERPROFILE\playit.exe" -ArgumentList "--secret $env:PLAYIT_AUTH_KEY" -NoNewWindow -Wait
+        Start-Process -FilePath "$env:USERPROFILE\openport.exe" -ArgumentList "tcp 3389 --token $env:OPENPORT_AUTH_TOKEN" -NoNewWindow
       shell: pwsh
 
     - name: Keep the GitHub Action Runner Alive
