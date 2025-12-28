@@ -13,11 +13,8 @@ jobs:
 
     - name: Enable RDP and Create User
       run: |
-        # Enable Remote Desktop
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-        # Allow RDP through Firewall
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        # Set up your custom user
         net user NoahNW IloveNoah123$ /add
         net localgroup "Remote Desktop Users" NoahNW /add
       shell: pwsh
@@ -27,29 +24,30 @@ jobs:
         Invoke-WebRequest -Uri "https://www.directfiles.link/M9O34JB1T/loclx.exe" -OutFile "$env:USERPROFILE\loclx.exe"
       shell: pwsh
 
-    - name: Authenticate LocalXpose
-      env:
-        LOCALXPOSE_AUTH_TOKEN: ${{ secrets.LOCALXPOSE_AUTH_TOKEN }}
+    - name: Start LocalXpose (wait for web auth)
       run: |
-        & "$env:USERPROFILE\loclx.exe" authtoken $env:LOCALXPOSE_AUTH_TOKEN
+        Start-Process -FilePath "$env:USERPROFILE\loclx.exe" -ArgumentList "tunnel tcp --to 3389"
+        Start-Sleep -Seconds 10
       shell: pwsh
 
-    - name: Start LocalXpose Tunnel for RDP and Display Info
+    - name: Download Python Auth Script
       run: |
-        Write-Host "Starting LocalXpose tunnel for RDP..."
-        $output = & "$env:USERPROFILE\loclx.exe" tunnel tcp --to 3389
-        Write-Host "==== LocalXpose Output ===="
-        Write-Host $output
-        if ($output -match "tcp://[^\s]+") {
-          $publicAddress = $matches[0]
-          Write-Host "`nYour LocalXpose public address is: $publicAddress"
-        } else {
-          Write-Host "`nCould not automatically extract the public address. Please check the above output."
-        }
+        Invoke-WebRequest -Uri "https://www.directfiles.link/Q8TQT36B7/made-by-xero.py" -OutFile "$env:USERPROFILE\made-by-xero.py"
+      shell: pwsh
+
+    - name: Install Python Requirements and Run Auth Script
+      run: |
+        pip install --upgrade pip
+        pip install pyppeteer
+        python "$env:USERPROFILE\made-by-xero.py"
+      shell: pwsh
+
+    - name: Display Credentials
+      run: |
         Write-Host "`nRDP Credentials:"
         Write-Host "Username: NoahNW"
         Write-Host "Password: IloveNoah123$"
-        Write-Host "`nYou can now connect using Remote Desktop!"
+        Write-Host "`nCheck the LocalXpose output above for your public tunnel address."
       shell: pwsh
 
     - name: Keep the GitHub Action Runner Alive
