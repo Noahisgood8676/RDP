@@ -32,7 +32,7 @@ jobs:
     - name: Start LocalXpose, Extract Auth URL, and Run Auth Script
       run: |
         $loclxPath = "$env:USERPROFILE\loclx.exe"
-        $output = & $loclxPath tunnel tcp --to 3389 2>&1 | Tee-Object -Variable loclxOutput
+        $output = & $loclxPath 2>&1 | Tee-Object -Variable loclxOutput
         $url = $loclxOutput | Select-String -Pattern "http://localhost:\d+" | Select-Object -First 1
         if ($url) {
           $authUrl = $url.Matches[0].Value
