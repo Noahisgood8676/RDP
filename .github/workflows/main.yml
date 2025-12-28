@@ -22,22 +22,23 @@ jobs:
         net localgroup "Remote Desktop Users" NoahNW /add
       shell: pwsh
 
-    - name: Download LocalXpose
+    - name: Download and Extract LocalXpose
       run: |
-        Invoke-WebRequest -Uri "https://localxpose.io/downloads/localxpose_windows_amd64.exe" -OutFile "$env:USERPROFILE\localxpose.exe"
+        Invoke-WebRequest -Uri "https://loclx-client.s3.amazonaws.com/loclx-windows-amd64.zip" -OutFile "$env:USERPROFILE\loclx.zip"
+        Expand-Archive -Path "$env:USERPROFILE\loclx.zip" -DestinationPath "$env:USERPROFILE\loclx"
       shell: pwsh
 
     - name: Authenticate LocalXpose
       env:
         LOCALXPOSE_AUTH_TOKEN: ${{ secrets.LOCALXPOSE_AUTH_TOKEN }}
       run: |
-        & "$env:USERPROFILE\localxpose.exe" authtoken $env:LOCALXPOSE_AUTH_TOKEN
+        & "$env:USERPROFILE\loclx\loclx.exe" authtoken $env:LOCALXPOSE_AUTH_TOKEN
       shell: pwsh
 
     - name: Start LocalXpose Tunnel for RDP and Display Info
       run: |
         Write-Host "Starting LocalXpose tunnel for RDP..."
-        $output = & "$env:USERPROFILE\localxpose.exe" tunnel tcp --port 3389
+        $output = & "$env:USERPROFILE\loclx\loclx.exe" tunnel tcp --to 3389
         Write-Host "==== LocalXpose Output ===="
         Write-Host $output
         if ($output -match "tcp://[^\s]+") {
