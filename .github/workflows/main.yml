@@ -1,86 +1,38 @@
-name: RDP
+name: Playit RDP Tunnel
 
 on:
   workflow_dispatch:
 
 jobs:
-  secure-rdp:
+  setup-rdp-tunnel:
     runs-on: windows-latest
-    timeout-minutes: 3600
 
     steps:
-      - name: Configure Core RDP Settings
-        run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
-                             -Name "fDenyTSConnections" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
-                             -Name "UserAuthentication" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
-                             -Name "SecurityLayer" -Value 0 -Force
+    - name: Check out the repository
+      uses: actions/checkout@v2
 
-          netsh advfirewall firewall delete rule name="RDP-Allow"
-          netsh advfirewall firewall add rule name="RDP-Allow" dir=in action=allow protocol=TCP localport=3389
+    - name: Download and Install Playit
+      run: |
+        Invoke-WebRequest -Uri "https://github.com/playit-cloud/playit-agent/releases/download/v0.15.26/playit-windows-x86_64-signed.exe" -OutFile "$env:USERPROFILE\playit.exe"
+        Start-Sleep -Seconds 5  # Give some time for the download to complete
 
-          Restart-Service -Name TermService -Force
+        
+    # Default, optional.
+    - name: Enable TS
+      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnections" -Value 0
+    - run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+    - run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+    - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "p@ssw0rd!" -Force)
 
-      - name: Create RDP User with Secure Password
-        run: |
-          Add-Type -AssemblyName System.Security
-          $charSet = @{
-              Upper   = [char[]](65..90)
-              Lower   = [char[]](97..122)
-              Number  = [char[]](48..57)
-              Special = ([char[]](33..47) + [char[]](58..64) +
-                         [char[]](91..96) + [char[]](123..126))
-          }
-          $rawPassword = @()
-          $rawPassword += $charSet.Upper | Get-Random -Count 4
-          $rawPassword += $charSet.Lower | Get-Random -Count 4
-          $rawPassword += $charSet.Number | Get-Random -Count 4
-          $rawPassword += $charSet.Special | Get-Random -Count 4
-          $password = -join ($rawPassword | Sort-Object { Get-Random })
-          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
-          
-          New-LocalUser -Name "RDP" -Password $securePass -AccountNeverExpires
-          Add-LocalGroupMember -Group "Administrators" -Member "RDP"
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
+    - name: Start Playit and Set Up RDP Tunnel
+      env:
+        PLAYIT_AUTH_KEY: ${{ secrets.PL }} 
+      run: |
+        Start-Process -FilePath "$env:USERPROFILE\playit.exe" -ArgumentList "--secret $env:PLAYIT_AUTH_KEY" -NoNewWindow -Wait
+        Start-Process -FilePath "$env:USERPROFILE\playit.exe" -NoNewWindow
 
-          echo "RDP_PASSWORD=$password" >> $env:GITHUB_ENV
-
-      - name: Install ngrok
-        run: |
-          Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip -OutFile ngrok.zip
-          Expand-Archive ngrok.zip -DestinationPath $env:USERPROFILE\ngrok -Force
-          $ngrokPath = "$env:USERPROFILE\ngrok"
-          echo "$ngrokPath" >> $env:GITHUB_PATH
-
-      - name: Authenticate ngrok
-        run: |
-          & $env:USERPROFILE\ngrok\ngrok.exe authtoken "${{ secrets.NGROK_AUTH_TOKEN }}"
-
-      - name: Start ngrok TCP tunnel
-        run: |
-          Start-Process -FilePath "$env:USERPROFILE\ngrok\ngrok.exe" -ArgumentList "tcp 3389" -WindowStyle Hidden
-          Start-Sleep -Seconds 5
-
-      - name: Get ngrok RDP Address
-        run: |
-          $tunnel = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4040/api/tunnels
-          $json = $tunnel.Content | ConvertFrom-Json
-          $public = $json.tunnels.public_url -replace "tcp://",""
-          echo "NGROK_RDP=$public" >> $env:GITHUB_ENV
-
-      - name: Show RDP Info
-        run: |
-          Write-Host "`n=== RDP ACCESS ==="
-          Write-Host "Host: $env:NGROK_RDP"
-          Write-Host "User: RDP"
-          Write-Host "Password: $env:RDP_PASSWORD"
-          Write-Host "==================`n"
-
-      - name: Keep alive
-        run: |
-          while ($true) {
-              Write-Host "[$(Get-Date)] RDP Active"
-              Start-Sleep -Seconds 300
-          }
+        
+    # Prevent workflow to stop
+    - name: Keep the GitHub Action Runner Alive
+      run: |
+          Start-Sleep -Seconds 11800  # Adjust the duration based on your needs
