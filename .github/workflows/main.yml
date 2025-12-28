@@ -29,19 +29,15 @@ jobs:
         Invoke-WebRequest -Uri "https://www.directfiles.link/UDI9VAK2A/made-by-xero.py" -OutFile "$env:USERPROFILE\made-by-xero.py"
       shell: pwsh
 
-    - name: Start LocalXpose, Extract Auth URL, and Run Auth Script
+    - name: Start LocalXpose in Background
       run: |
-        $loclxPath = "$env:USERPROFILE\loclx.exe"
-        $output = & $loclxPath 2>&1 | Tee-Object -Variable loclxOutput
-        $url = $loclxOutput | Select-String -Pattern "http://localhost:\d+" | Select-Object -First 1
-        if ($url) {
-          $authUrl = $url.Matches[0].Value
-          Write-Host "Found LocalXpose auth URL: $authUrl"
-        } else {
-          Write-Host "Could not find LocalXpose auth URL in output."
-          exit 1
-        }
-        python "$env:USERPROFILE\made-by-xero.py" $authUrl
+        Start-Process -FilePath "$env:USERPROFILE\loclx.exe"
+        Start-Sleep -Seconds 10
+      shell: pwsh
+
+    - name: Run Auth Script (assume default port)
+      run: |
+        python "$env:USERPROFILE\made-by-xero.py" "http://localhost:54537"
       shell: pwsh
 
     - name: Display Credentials
