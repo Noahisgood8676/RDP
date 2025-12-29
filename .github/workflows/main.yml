@@ -2,7 +2,7 @@ name: FREE-RDP-MADE-BY-XERO-USING-BORE
 on: 
   workflow_dispatch:
   schedule:
-    - cron: '5 */6 * * *' # Auto-restarts every 6 hours
+    - cron: '5 */6 * * *'
 
 jobs:
   rdp-xero:
@@ -19,14 +19,16 @@ jobs:
 
     - name: 🛠️ Setup Windows (XERO-Edition)
       run: |
-        # Enable RDP & Multiple Sessions
+        # 1. Enable RDP & Multiple Sessions
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fSingleSessionPerUser" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        # Create User
-        net user SkibidiXero "SkibidiXeroisHot" /add
-        net localgroup Administrators SkibidiXero /add
-        # Create Save Folder
+        
+        # 2. Create User (Using /Y to bypass the 14-character warning)
+        net user XeroAdmin "SkibidiXeroisHot" /add /Y
+        net localgroup Administrators XeroAdmin /add
+        
+        # 3. Create Save Folder
         mkdir C:\Users\runneradmin\Desktop\SavedData -Force
 
     - name: 🚀 Launch Bore Tunnel
@@ -39,7 +41,7 @@ jobs:
         Write-Host "--------------------------------------------------"
         # Run Bore in foreground with Out-Default to show logs
         .\bore.exe local 3389 --to bore.pub | Out-Default
-      timeout-minutes: 350 # Stop 10 mins early to ensure data is saved
+      timeout-minutes: 350
       continue-on-error: true
 
     - name: 💾 Save Data for Next Session
