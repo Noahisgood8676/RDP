@@ -1,67 +1,21 @@
-name: LocalXpose RDP Tunnel
+name: Free-RDP
 
 on:
   workflow_dispatch:
 
 jobs:
-  setup-rdp-tunnel:
+  build:
     runs-on: windows-latest
 
     steps:
-    - name: Check out the repository
-      uses: actions/checkout@v2
-
-    - name: Enable RDP and Create User
+    - name: Setup LocalXpose
       run: |
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Invoke-WebRequest -Uri https://localxpose.io/releases/localxpose-windows-amd64.zip -OutFile lx.zip
+        Expand-Archive lx.zip -DestinationPath .
+        .\localxpose.exe authtoken ${{ secrets.LOCALXPOSE_TOKEN }}
+
+    - name: Enable RDP and Tunnel
+      run: |
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        net user NoahNW IloveNoah123$ /add
-        net localgroup "Remote Desktop Users" NoahNW /add
-      shell: pwsh
-
-    - name: Download LocalXpose CLI
-      run: |
-        Invoke-WebRequest -Uri "https://www.directfiles.link/M9O34JB1T/loclx.exe" -OutFile "$env:USERPROFILE\loclx.exe"
-      shell: pwsh
-
-    - name: Download Python Auth Script
-      run: |
-        Invoke-WebRequest -Uri "https://www.directfiles.link/UDI9VAK2A/made-by-xero.py" -OutFile "$env:USERPROFILE\made-by-xero.py"
-      shell: pwsh
-
-    - name: Install Selenium
-      run: |
-        pip install selenium
-      shell: pwsh
-
-    - name: Start LocalXpose in Background for Auth
-      run: |
-        Start-Process -FilePath "$env:USERPROFILE\loclx.exe"
-        Start-Sleep -Seconds 10
-      shell: pwsh
-
-    - name: Run Auth Script (assume default port)
-      run: |
-        python "$env:USERPROFILE\made-by-xero.py" "http://localhost:54537"
-      shell: pwsh
-
-    - name: Create LocalXpose TCP Tunnel for RDP
-      run: |
-        $loclxPath = "$env:USERPROFILE\loclx.exe"
-        $output = & $loclxPath tunnel tcp --to localhost:3389 2>&1
-        Write-Host "==== LocalXpose Tunnel Output ===="
-        Write-Host $output
-      shell: pwsh
-
-    - name: Display Credentials
-      run: |
-        Write-Host "`nRDP Credentials:"
-        Write-Host "Username: NoahNW"
-        Write-Host "Password: IloveNoah123$"
-        Write-Host "`nCheck the LocalXpose output above for your public tunnel address."
-      shell: pwsh
-
-    - name: Keep the GitHub Action Runner Alive
-      run: |
-        while ($true) { Start-Sleep -Seconds 3600 }
-      shell: pwsh
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
+        .\localxpose.exe tcp 3389
