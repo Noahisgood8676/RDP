@@ -1,4 +1,4 @@
-name: Bore-RDP-With-Save
+name: FREE-RDP-MADE-BY-XERO-USING-BORE
 on: 
   workflow_dispatch:
   schedule:
