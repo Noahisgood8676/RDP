@@ -1,4 +1,4 @@
-name: Bore-RDP-Free
+name: Bore-RDP-Latest
 on: workflow_dispatch
 
 jobs:
@@ -7,19 +7,23 @@ jobs:
     steps:
     - name: Setup Windows & User
       run: |
-        # Enable RDP and allow connections
+        # 1. Enable RDP and allow connections through firewall
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        # Create user NoahNW with your password
+        
+        # 2. Allow multiple sessions (fixes the "Console" session error)
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fSingleSessionPerUser" -Value 0
+        
+        # 3. Create user NoahNW with your password
         net user NoahNW "Iloveriley123$" /add
         net localgroup Administrators NoahNW /add
 
     - name: Download and Start Bore
       run: |
-        # Download the Bore tool
-        Invoke-WebRequest https://github.com/ekzhang/bore/releases/latest/download/bore-v0.5.1-x86_64-pc-windows-msvc.zip -OutFile bore.zip
+        # Download the v0.6.0 Bore tool you provided
+        Invoke-WebRequest https://github.com/ekzhang/bore/releases/download/v0.6.0/bore-v0.6.0-x86_64-pc-windows-msvc.zip -OutFile bore.zip
         Expand-Archive bore.zip -DestinationPath .
         
         Write-Host "--- TUNNEL STARTING ---"
-        # This connects local port 3389 to the public bore.pub server
+        # Connects local port 3389 to the public bore.pub server
         .\bore.exe local 3389 --to bore.pub
