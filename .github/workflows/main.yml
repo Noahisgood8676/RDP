@@ -1,4 +1,4 @@
-name: Free RDP (Cloudflare)
+name: Free RDP (Cloudflare Quick Tunnel)
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ jobs:
     timeout-minutes: 360
 
     steps:
-    - name: Download Cloudflared
+    - name: Download cloudflared
       run: |
         Invoke-WebRequest https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe -OutFile cloudflared.exe
 
@@ -24,6 +24,6 @@ jobs:
         net localgroup Administrators NoahNW /add
         net localgroup "Remote Desktop Users" NoahNW /add
 
-    - name: Start Cloudflare Tunnel
+    - name: Start Cloudflare Quick Tunnel (RDP)
       run: |
-        .\cloudflared.exe tunnel run --token ${{ secrets.CLOUDFLARE_TOKEN }}
+        .\cloudflared.exe tunnel --url tcp://localhost:3389
