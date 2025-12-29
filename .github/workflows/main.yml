@@ -2,54 +2,50 @@ name: FREE-RDP-MADE-BY-XERO-USING-BORE
 on: 
   workflow_dispatch:
   schedule:
-    - cron: '5 */6 * * *'
+    - cron: '5 */6 * * *' # Auto-restarts every 6 hours
 
 jobs:
-  rdp:
+  rdp-xero:
     runs-on: windows-latest
     timeout-minutes: 360
 
     steps:
-    - name: Restore My Data
+    - name: 📂 Restore Saved Data
       uses: actions/download-artifact@v4
       with:
-        name: my-rdp-data
+        name: xero-saved-data
         path: C:\Users\runneradmin\Desktop\SavedData
       continue-on-error: true
 
-    - name: Setup Windows & User
+    - name: 🛠️ Setup Windows (XERO-Edition)
       run: |
+        # Enable RDP & Multiple Sessions
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fSingleSessionPerUser" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        # Create User
         net user NoahNW "Iloveriley123$" /add
         net localgroup Administrators NoahNW /add
+        # Create Save Folder
         mkdir C:\Users\runneradmin\Desktop\SavedData -Force
 
-    - name: Download and Start Bore
+    - name: 🚀 Launch Bore Tunnel
       shell: powershell
       run: |
-        # Download Bore
         Invoke-WebRequest https://github.com/ekzhang/bore/releases/download/v0.6.0/bore-v0.6.0-x86_64-pc-windows-msvc.zip -OutFile bore.zip
         Expand-Archive bore.zip -DestinationPath . -Force
-        
-        Write-Host "--- TUNNEL STARTING ---"
-        
-        # Start Bore as a background process
-        $boreProcess = Start-Process -FilePath ".\bore.exe" -ArgumentList "local 3389 --to bore.pub" -PassThru
-        
-        # Instead of 'timeout', we wait for 350 minutes (21000 seconds)
-        # This keeps the script running so the GitHub Action stays open
-        Start-Sleep -Seconds 21000
-        
-        # Stop Bore cleanly so we can save data
-        Stop-Process -Id $boreProcess.Id -Force
+        Write-Host "--------------------------------------------------"
+        Write-Host "   FREE RDP MADE BY XERO - LOOK BELOW FOR PORT    "
+        Write-Host "--------------------------------------------------"
+        # Run Bore in foreground with Out-Default to show logs
+        .\bore.exe local 3389 --to bore.pub | Out-Default
+      timeout-minutes: 350 # Stop 10 mins early to ensure data is saved
       continue-on-error: true
 
-    - name: Save My Data
+    - name: 💾 Save Data for Next Session
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: my-rdp-data
+        name: xero-saved-data
         path: C:\Users\runneradmin\Desktop\SavedData
         retention-days: 7
