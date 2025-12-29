@@ -1,29 +1,44 @@
-name: Bore-RDP-Latest
-on: workflow_dispatch
+name: Bore-RDP-With-Save
+on: 
+  workflow_dispatch:
+  schedule:
+    - cron: '5 */6 * * *'
 
 jobs:
   rdp:
     runs-on: windows-latest
+    timeout-minutes: 355 # Give 5 mins to upload data before time is up
+
     steps:
+    - name: Restore My Data
+      uses: actions/download-artifact@v4
+      with:
+        name: my-rdp-data
+        path: C:\Users\runneradmin\Desktop\SavedData
+      continue-on-error: true # Don't fail if it's the first time running
+
     - name: Setup Windows & User
       run: |
-        # 1. Enable RDP and allow connections through firewall
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        
-        # 2. Allow multiple sessions (fixes the "Console" session error)
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fSingleSessionPerUser" -Value 0
-        
-        # 3. Create user NoahNW with your password
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         net user NoahNW "Iloveriley123$" /add
         net localgroup Administrators NoahNW /add
+        # Create the save folder if it doesn't exist
+        mkdir C:\Users\runneradmin\Desktop\SavedData -Force
 
-    - name: Download and Start Bore
+    - name: Start Bore Tunnel
       run: |
-        # Download the v0.6.0 Bore tool you provided
         Invoke-WebRequest https://github.com/ekzhang/bore/releases/download/v0.6.0/bore-v0.6.0-x86_64-pc-windows-msvc.zip -OutFile bore.zip
         Expand-Archive bore.zip -DestinationPath .
-        
-        Write-Host "--- TUNNEL STARTING ---"
-        # Connects local port 3389 to the public bore.pub server
-        .\bore.exe local 3389 --to bore.pub
+        # Use a timeout to stop the tunnel 5 mins early so the save step can run
+        timeout 21000 .\bore.exe local 3389 --to bore.pub
+      continue-on-error: true
+
+    - name: Save My Data
+      uses: actions/upload-artifact@v4
+      if: always() # Run even if the tunnel crashed
+      with:
+        name: my-rdp-data
+        path: C:\Users\runneradmin\Desktop\SavedData
+        retention-days: 7
