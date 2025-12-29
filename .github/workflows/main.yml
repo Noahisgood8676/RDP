@@ -24,8 +24,8 @@ jobs:
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fSingleSessionPerUser" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         # Create User
-        net user NoahNW "Iloveriley123$" /add
-        net localgroup Administrators NoahNW /add
+        net user SkibidiXero "SkibidiXeroisHot" /add
+        net localgroup Administrators SkibidiXero /add
         # Create Save Folder
         mkdir C:\Users\runneradmin\Desktop\SavedData -Force
 
