@@ -18,17 +18,31 @@ jobs:
       continue-on-error: true
 
     - name: 🛠️ Setup Windows (XERO-Edition)
+      shell: powershell
       run: |
         # 1. Enable RDP & Multiple Sessions
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fSingleSessionPerUser" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         
-        # 2. Create User (Using /Y to bypass the 14-character warning)
-        net user XeroAdmin "SkibidiXeroisHot" /add /Y
-        net localgroup Administrators XeroAdmin /add
+        # 2. Generate Random Strong Password & Username
+        $alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+        $pass = -join ((1..16) | ForEach-Object { $alphabet[(Get-Random -Maximum $alphabet.Length)] })
+        $user = "XeroUser" + (Get-Random -Minimum 100 -Maximum 999)
         
-        # 3. Create Save Folder
+        # 3. Create User with the generated credentials
+        net user $user $pass /add /Y
+        net localgroup Administrators $user /add
+        
+        # 4. Show the Login Details clearly in the logs
+        Write-Host "--------------------------------------------------"
+        Write-Host "             XERO RDP LOGIN DETAILS               "
+        Write-Host "--------------------------------------------------"
+        Write-Host " USERNAME: $user"
+        Write-Host " PASSWORD: $pass"
+        Write-Host "--------------------------------------------------"
+        
+        # 5. Create Save Folder
         mkdir C:\Users\runneradmin\Desktop\SavedData -Force
 
     - name: 🚀 Launch Bore Tunnel
@@ -36,10 +50,7 @@ jobs:
       run: |
         Invoke-WebRequest https://github.com/ekzhang/bore/releases/download/v0.6.0/bore-v0.6.0-x86_64-pc-windows-msvc.zip -OutFile bore.zip
         Expand-Archive bore.zip -DestinationPath . -Force
-        Write-Host "--------------------------------------------------"
-        Write-Host "   FREE RDP MADE BY XERO - LOOK BELOW FOR PORT    "
-        Write-Host "--------------------------------------------------"
-        # Run Bore in foreground with Out-Default to show logs
+        Write-Host "--- TUNNEL STARTING ---"
         .\bore.exe local 3389 --to bore.pub | Out-Default
       timeout-minutes: 350
       continue-on-error: true
