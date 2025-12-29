@@ -1,67 +1,29 @@
-name: Free-RDP
+name: Free RDP (Cloudflare)
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  rdp:
     runs-on: windows-latest
     timeout-minutes: 360
 
     steps:
-    - name: Download LocalXpose
+    - name: Download Cloudflared
       run: |
-        Invoke-WebRequest https://loclx-client.s3.amazonaws.com/loclx-windows-amd64.zip -OutFile lx.zip
-        Expand-Archive lx.zip -DestinationPath loclx
+        Invoke-WebRequest https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe -OutFile cloudflared.exe
 
-    - name: Configure LocalXpose auth
+    - name: Enable RDP
       run: |
-        .\loclx\loclx.exe config set authtoken ${{ secrets.LOCALXPOSE_AUTH_TOKEN }}
+        Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-    - name: Create admin user
+    - name: Create RDP user
       run: |
         net user NoahNW "Iloveriley123$" /add
         net localgroup Administrators NoahNW /add
         net localgroup "Remote Desktop Users" NoahNW /add
 
-    - name: Enable RDP
+    - name: Start Cloudflare Tunnel
       run: |
-        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        Set-ItemProperty "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name fDenyTSConnections -Value 0
-
-    - name: Disable UAC prompts
-      run: |
-        reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v EnableLUA /t REG_DWORD /d 0 /f
-        reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v ConsentPromptBehaviorAdmin /t REG_DWORD /d 0 /f
-        reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v PromptOnSecureDesktop /t REG_DWORD /d 0 /f
-
-    - name: Enable Auto Login
-      run: |
-        reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v AutoAdminLogon /t REG_SZ /d 1 /f
-        reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DefaultUserName /t REG_SZ /d NoahNW /f
-        reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DefaultPassword /t REG_SZ /d "Iloveriley123$" /f
-
-    - name: Start TCP tunnel (auto-restart loop)
-      shell: powershell
-      run: |
-        while ($true) {
-          Write-Host "======================================="
-          Write-Host " Starting LocalXpose TCP Tunnel"
-          Write-Host "======================================="
-
-          $output = .\loclx\loclx.exe tunnel tcp --port 3389 --region us 2>&1
-          $output
-
-          $line = $output | Select-String "tcp://"
-          if ($line) {
-            Write-Host ""
-            Write-Host "========== RDP ADDRESS =========="
-            Write-Host $line
-            Write-Host "User: NoahNW"
-            Write-Host "Pass: Iloveriley123$"
-            Write-Host "================================="
-          }
-
-          Write-Host "Tunnel exited — restarting in 3 seconds..."
-          Start-Sleep -Seconds 3
-        }
+        .\cloudflared.exe tunnel run --token ${{ secrets.CLOUDFLARE_TOKEN }}
