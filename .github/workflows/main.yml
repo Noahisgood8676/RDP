@@ -7,7 +7,7 @@ on:
 jobs:
   rdp:
     runs-on: windows-latest
-    timeout-minutes: 355 # Give 5 mins to upload data before time is up
+    timeout-minutes: 360
 
     steps:
     - name: Restore My Data
@@ -15,7 +15,7 @@ jobs:
       with:
         name: my-rdp-data
         path: C:\Users\runneradmin\Desktop\SavedData
-      continue-on-error: true # Don't fail if it's the first time running
+      continue-on-error: true
 
     - name: Setup Windows & User
       run: |
@@ -24,20 +24,31 @@ jobs:
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         net user NoahNW "Iloveriley123$" /add
         net localgroup Administrators NoahNW /add
-        # Create the save folder if it doesn't exist
         mkdir C:\Users\runneradmin\Desktop\SavedData -Force
 
-    - name: Start Bore Tunnel
+    - name: Download and Start Bore
+      shell: powershell
       run: |
+        # Download Bore
         Invoke-WebRequest https://github.com/ekzhang/bore/releases/download/v0.6.0/bore-v0.6.0-x86_64-pc-windows-msvc.zip -OutFile bore.zip
-        Expand-Archive bore.zip -DestinationPath .
-        # Use a timeout to stop the tunnel 5 mins early so the save step can run
-        timeout 21000 .\bore.exe local 3389 --to bore.pub
+        Expand-Archive bore.zip -DestinationPath . -Force
+        
+        Write-Host "--- TUNNEL STARTING ---"
+        
+        # Start Bore as a background process
+        $boreProcess = Start-Process -FilePath ".\bore.exe" -ArgumentList "local 3389 --to bore.pub" -PassThru
+        
+        # Instead of 'timeout', we wait for 350 minutes (21000 seconds)
+        # This keeps the script running so the GitHub Action stays open
+        Start-Sleep -Seconds 21000
+        
+        # Stop Bore cleanly so we can save data
+        Stop-Process -Id $boreProcess.Id -Force
       continue-on-error: true
 
     - name: Save My Data
       uses: actions/upload-artifact@v4
-      if: always() # Run even if the tunnel crashed
+      if: always()
       with:
         name: my-rdp-data
         path: C:\Users\runneradmin\Desktop\SavedData
