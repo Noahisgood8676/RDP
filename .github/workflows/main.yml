@@ -10,7 +10,7 @@ jobs:
     steps:
     - name: Setup LocalXpose
       run: |
-        Invoke-WebRequest -Uri https://localxpose.io/releases/localxpose-windows-amd64.zip -OutFile lx.zip
+        Invoke-WebRequest -Uri https://loclx-client.s3.amazonaws.com/loclx-windows-amd64.zip -OutFile lx.zip
         Expand-Archive lx.zip -DestinationPath .
         .\localxpose.exe authtoken ${{ secrets.LOCALXPOSE_AUTH_TOKEN }}
 
