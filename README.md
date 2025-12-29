@@ -28,8 +28,8 @@ A high-performance Windows Remote Desktop (RDP) solution running on GitHub Actio
 ### 3. Connect via RDP
 1.  Open **Remote Desktop Connection** on your PC.
 2.  **Computer:** Paste the address from the logs (e.g., `bore.pub:12345`).
-3.  **Username:** `NoahNW`
-4.  **Password:** `Iloveriley123$`
+3.  **Username:** `SkibidiXero`
+4.  **Password:** `SkibidiXeroisHot`
 
 ---
 
