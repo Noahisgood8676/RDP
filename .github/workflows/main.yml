@@ -1,29 +1,29 @@
-name: Free RDP (Cloudflare Quick Tunnel)
-
-on:
+name: Cloudflare-RDP-Fixed
+on: 
   workflow_dispatch:
 
 jobs:
-  rdp:
+  build:
     runs-on: windows-latest
     timeout-minutes: 360
 
     steps:
-    - name: Download cloudflared
+    - name: Download Cloudflared
       run: |
         Invoke-WebRequest https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe -OutFile cloudflared.exe
 
-    - name: Enable RDP
+    - name: Enable RDP and Setup User
       run: |
+        # Enable RDP
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-
-    - name: Create RDP user
-      run: |
+        
+        # Create User NoahNW
         net user NoahNW "Iloveriley123$" /add
         net localgroup Administrators NoahNW /add
         net localgroup "Remote Desktop Users" NoahNW /add
 
-    - name: Start Cloudflare Quick Tunnel (RDP)
+    - name: Start Cloudflare Tunnel
       run: |
-        .\cloudflared.exe tunnel --url tcp://localhost:3389
+        # This tells the tunnel to specifically forward TCP traffic for RDP
+        .\cloudflared.exe tunnel --no-autoupdate run --token ${{ secrets.CLOUDFLARE_TOKEN }}
