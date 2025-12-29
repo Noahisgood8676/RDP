@@ -1,45 +1,25 @@
-name: Cloudflare-RDP-Ultimate
-on: 
-  workflow_dispatch:
+name: Bore-RDP-Free
+on: workflow_dispatch
 
 jobs:
-  rdp-session:
+  rdp:
     runs-on: windows-latest
-    timeout-minutes: 360 # GitHub's max limit
-
     steps:
-    - name: Download Cloudflared
+    - name: Setup Windows & User
       run: |
-        Invoke-WebRequest https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe -OutFile cloudflared.exe
-
-    - name: Configure Windows for RDP
-      run: |
-        # 1. Enable RDP in Registry
+        # Enable RDP and allow connections
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-        
-        # 2. Prevent the 0x708 "Console Session" error (Allow multiple sessions)
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fSingleSessionPerUser" -Value 0
-        
-        # 3. Disable NLA (Network Level Authentication) to make connection easier
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0
-        
-        # 4. Open Firewall
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-
-    - name: Create RDP User
-      run: |
+        # Create user NoahNW with your password
         net user NoahNW "Iloveriley123$" /add
         net localgroup Administrators NoahNW /add
-        net localgroup "Remote Desktop Users" NoahNW /add
 
-    - name: Start Tunnel and Print Instructions
+    - name: Download and Start Bore
       run: |
-        Write-Host "--------------------------------------------------------"
-        Write-Host "STEP 1: Find the .trycloudflare.com link below"
-        Write-Host "STEP 2: Run this on YOUR PC in PowerShell:"
-        Write-Host ".\cloudflared.exe access rdp --hostname [LINK] --url localhost:3389"
-        Write-Host "STEP 3: Connect to 'localhost:3389' in RDP app"
-        Write-Host "--------------------------------------------------------"
+        # Download the Bore tool
+        Invoke-WebRequest https://github.com/ekzhang/bore/releases/latest/download/bore-v0.5.1-x86_64-pc-windows-msvc.zip -OutFile bore.zip
+        Expand-Archive bore.zip -DestinationPath .
         
-        # Start the tunnel (Quick Tunnel mode)
-        .\cloudflared.exe tunnel --url tcp://localhost:3389
+        Write-Host "--- TUNNEL STARTING ---"
+        # This connects local port 3389 to the public bore.pub server
+        .\bore.exe local 3389 --to bore.pub
