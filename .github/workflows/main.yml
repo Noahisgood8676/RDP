@@ -8,14 +8,21 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Setup LocalXpose
+    - name: Download LocalXpose
       run: |
-        Invoke-WebRequest -Uri https://loclx-client.s3.amazonaws.com/loclx-windows-amd64.zip -OutFile lx.zip
-        Expand-Archive lx.zip -DestinationPath .
-        .\localxpose.exe authtoken ${{ secrets.LOCALXPOSE_AUTH_TOKEN }}
+        Invoke-WebRequest https://loclx-client.s3.amazonaws.com/loclx-windows-amd64.zip -OutFile lx.zip
+        Expand-Archive lx.zip -DestinationPath loclx
+        dir loclx
 
-    - name: Enable RDP and Tunnel
+    - name: Authenticate LocalXpose
+      run: |
+        .\loclx\loclx.exe authtoken ${{ secrets.LOCALXPOSE_AUTH_TOKEN }}
+
+    - name: Enable RDP
       run: |
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
-        .\localxpose.exe tcp 3389
+        Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
+
+    - name: Start RDP Tunnel
+      run: |
+        .\loclx\loclx.exe tcp 3389
