@@ -5,10 +5,11 @@ A high-performance Windows Remote Desktop (RDP) solution running on GitHub Actio
 ---
 
 ## 🌟 Key Features
-* **100% Free**
-* **Persistent Storage:** Files saved in the `C:\Users\runneradmin\Desktop\SavedData` folder are automatically backed up and restored.
-* **Auto-Restart:** Automatically triggers a new session every 6 hours to bypass GitHub limits.
-* **Fast Connection:** Uses **Bore** (TCP Tunneling) for low-latency mouse and keyboard input.
+* **100% Free:** No tokens or accounts required.
+* **Security Bypass:** Automatically generates strong credentials to meet Windows complexity policies.
+* **Persistent Storage:** Files in `C:\Users\runneradmin\Desktop\SavedData` are backed up and restored automatically.
+* **Auto-Restart:** Triggers a new session every 6 hours to bypass GitHub limits.
+* **Fast Connection:** Powered by [Bore](https://github.com/ekzhang/bore) for low-latency TCP tunneling.
 
 ---
 
@@ -19,27 +20,26 @@ A high-performance Windows Remote Desktop (RDP) solution running on GitHub Actio
 2.  Select the workflow: `FREE-RDP-MADE-BY-XERO-USING-BORE`.
 3.  Click **Run workflow** > **Run workflow**.
 
-### 2. Get your Connection Address
+### 2. Get your Credentials & Port
 1.  Click on the active workflow run.
-2.  Open the **🚀 Launch Bore Tunnel** step.
-3.  Look for the line: `listening at bore.pub:XXXXX`.
-4.  Copy that address (e.g., `bore.pub:12345`).
+2.  **For User/Pass:** Open the **🛠️ Setup Windows (XERO-Edition)** step. Look for the **USERNAME** and **PASSWORD** generated for that session.
+3.  **For Port:** Open the **🚀 Launch Bore Tunnel** step. Look for the line: `listening at bore.pub:XXXXX`.
 
 ### 3. Connect via RDP
 1.  Open **Remote Desktop Connection** on your PC.
-2.  **Computer:** Paste the address from the logs (e.g., `bore.pub:12345`).
-3.  **Username:** `SkibidiXero`
-4.  **Password:** `SkibidiXeroisHot`
+2.  **Computer:** `bore.pub:XXXXX` (Use the port from step 2).
+3.  **Username:** (Use the random username from step 2).
+4.  **Password:** (Use the random password from step 2).
 
 ---
 
 ## 💾 How the Save System Works (IMPORTANT)
 
 GitHub wipes the machine every 6 hours. To keep your files:
-1.  Paste this into the file explorer path box **`C:\Users\runneradmin\Desktop\SavedData`** on the FREE-RDP made by XERO.
+1.  Open the folder **`SavedData`** on the Desktop of the RDP.
 2.  **Move all files you want to keep into this folder.**
 3.  When the session ends (or if you cancel it), the system will upload this folder.
-4.  When the next session starts, your files will be waiting for you in that same folder.
+4.  When the next session starts, your files will be restored automatically.
 
 > [!WARNING]  
 > Any files saved outside of `C:\Users\runneradmin\Desktop\SavedData` will be **deleted forever** when the session restarts.
